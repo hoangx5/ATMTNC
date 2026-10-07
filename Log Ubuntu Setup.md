@@ -1,263 +1,252 @@
 
+# MANUAL
+### Lấy file trên USB vào UbuntuSV
+#### ●  Cắm và phân vùng cho USB 
+	lsblk
 
-* **Cắm và phân vùng cho USB**
+*"sdb/sdb1 là usb"*
+#### ●  tạo thư mục
+	sudo mkdir -p /mnt/usb
+#### ●  mount
+	sudo mount /dev/sdb1 /mnt/usb
+#### ●  check
+	ls /mnt/usb
+****
+### Cài package
+	sudo dpkg -i [đường dẫn]
+****
+### Thiết lập mạng
+#### Thiết lập Mạng tạm
+**set ip FireWall/VPN/Router**
 
-lsblk
+	sudo ip addr add 10.0.0.1/29 dev ens37
+	
+	sudo ip link set ens37 up
 
-*//sdb/sdb1 là usb*
+**set ip FireWall/Router**
 
+	sudo ip addr add 10.0.0.2/29 dev ens37
 
+	sudo ip link set ens37 up
 
-*//tạo thư mục*
+#### Thiết lập NetPlan (vĩnh viễn)
+	sudo nano /etc/netplan/00-installer-config.yaml
 
-sudo mkdir -p /mnt/usb
+	sudo netplan apply
+****
+### Lệnh test
+#### ●  Lệnh tra thay cho ping
 
+	ping -c 5 10.0.0.2
+	
+**Lệnh test routing**
 
+	ip route
+	
+# LOG
+### 1. Cài các package cần thiết
+*"Các package gồm: nano; ping; dhcp"*
 
-*//mount*
+#### Các bước chuẩn bị:
+- Cắm USB vào máy thật
+- Download các package từ nguồn chính thức
+- Chép package vào USB: E:/UbuntuSV Setup/
+- Rút USB ra cắm lại
+- Ở VMware chọn kết nối vào 
+- Thực hiện các bước mount USB
+- Cắm và phân vùng cho USB
 
-sudo mount /dev/sdb1 /mnt/usb
+#### Thực hiện:
+##### Trước khi thực hiện
 
+	lsblk
 
+*"sdb/sdb1 là usb"*
 
-*//check*
 
-ls /mnt/usb
+##### Tạo thư mục
 
+	sudo mkdir -p /mnt/usb
 
+##### Mount
 
-*//cài trình soạn thảo offline*
+	sudo mount /dev/sdb1 /mnt/usb
 
-sudo dpkg -i /mnt/usb/nano\_8.0-1\_amd64.deb
+##### Check
 
+	ls /mnt/usb
 
+##### Cài trình soạn thảo offline
 
-* **Cài trình soạn thảo văn bản online**
+	sudo dpkg -i /mnt/usb/UbuntuSV/nano
 
-sudo apt update
+##### Cài lệnh ping
 
-sudo apt install nano
+	sudo dpkg -i /mnt/usb/UbuntuSV/iputils-ping
 
+##### Cài dhcp
 
+	sudo dpkg -i /mnt/usb/UbuntuSV/isc-dhcp
 
-* **Lệnh kiểm tra thay cho ping**
+### 2. Setup Netplan UbuntuSV
 
-ip route get 10.0.0.2
+#### Lệnh vào chỉnh sửa netplan
 
+	sudo nano /etc/netplan/00-installer-config.yaml
 
+#### Cấu hình netplan netplan
 
-* **Thiết lập NetPlan**
+>FireWall/VPN
+	
+	ethernets:
+	   ens33:
+		 dhcp4: false
+		 addresses:
+		   - 192.168.145.1/24
 
-sudo nano /etc/netplan/00-installer-config.yaml
+	   ens37:
+		 dhcp4: false
+		 addresses:
+		   - 10.0.0.1/29
+		 routes:
+		   - to: 192.168.150.0/24
+			 via: 10.0.0.2
+	 version: 2
 
-sudo netplan apply
+>FireWall
 
+	network:
+	 ethernets:
+	   ens33:
+		 dhcp4: false
+		 addresses:
+		   - 192.168.150.1/24
+	   ens37:
+		 dhcp4: false
+		 addresses:
+		   - 10.0.0.2/29
+		 routes:
+		   - to: 192.168.145.0/24
+			 via: 10.0.0.1
+	 version: 2
+	 
+#### Lệnh thử
 
+	sudo netplan generate
 
-* **Thiết lập mạng tạm**
+	sudo netplan try
 
-***//set ip FireWall/VPN/Router*** 
+#### Lệnh áp dụng
 
-sudo ip addr add 10.0.0.1/29 dev ens37
+	sudo netplan apply
+	
+### 3. Test ping
 
-sudo ip link set ens37 up
+>FireWall/VPN
 
+	ping -c 4 10.0.0.2
+	ping -c 4 192.168.150.1
 
+>Firewall
 
-***//set ip FireWall/Router***
+	ping -c 4 10.0.0.2
+	ping -c 4 192.168.145.1
 
-sudo ip addr add 10.0.0.2/29 dev ens37
+### 4. Bật chức năng routing
 
-sudo ip link set ens37 up
+	sudo nano /etc/sysctl.conf
 
+#### Thêm vào sysctl.conf
 
+	net.ipv4.ip_forward=1
 
-* **Log**
-1. Cài trình soạn thảo văn bản nano
+#### Lệnh áp dụng
 
-\-Cắm USB vào máy thật
+	sudo sysctl -p
 
-\-Tải package vào USB
+#### Lệnh test xem đã bật routing chưa
 
-\-Cắm USB vào UbuntuSV
+	cat /proc/sys/net/ipv4/ip_forward
 
-\-Thực hiện các bước mount USB
+>kết quả mong đợi
 
+	1
 
+#### Lệnh test xem các routing hiện tại
 
-//Cắm và phân vùng cho USB
+	ip route
 
+### 5.Cấu hình DHCP
 
+#### Cấu hình interface DHCP
 
-lsblk
+	sudo nano /etc/default/isc-dhcp-server
 
-*//sdb/sdb1 là usb*
+>Thêm vào isc-dhcp-server
+	
+	INTERFACESv4="ens33"
+	
+#### Cấu hình dhcpd.conf
 
+	sudo nano /etc/dhcp/dhcpd.conf
 
+#### Thêm vào dhcpd.conf
 
-*//tạo thư mục*
+>FireWall/VPN
 
-sudo mkdir -p /mnt/usb
+	authoritative;
 
+	subnet 192.168.145.0 netmask 255.255.255.0 {
+		range 192.168.145.10 192.168.145.200;
 
+		option subnet-mask 255.255.255.0;
+		option routers 192.168.145.1;
 
-*//mount*
+		option domain-name-servers 8.8.8.8;
 
-sudo mount /dev/sdb1 /mnt/usb
+		default-lease-time 600;
+		max-lease-time 7200;
+	}
 
+>FireWall
 
+	authoritative;
 
-*//check*
+	subnet 192.168.150.0 netmask 255.255.255.0 {
+		range 192.168.150.10 192.168.150.200;
 
-ls /mnt/usb
+		option subnet-mask 255.255.255.0;
+		option routers 192.168.150.1;
 
+		option domain-name-servers 8.8.8.8;
 
+		default-lease-time 600;
+		max-lease-time 7200;
+	}
 
-//cài trình soạn thảo offline
+#### Kết quả sau khi cấu hình dhcpd.conf
 
-sudo dpkg -i /mnt/usb/nano
+>Kết quả FireWall/VPN
 
+	DHCP range:
+	192.168.145.10 → 192.168.145.200
 
+	Gateway tự động:
+	192.168.145.1
+	
+>Kết quả FireWall
 
-//cài lệnh ping
+	DHCP range:
+	192.168.150.10 → 192.168.145.200
 
-sudo dpkg -i /mnt/usb/iputils-ping
+	Gateway tự động:
+	192.168.150.1
+	
+#### Lệnh kiểm tra kết quả
+	
+	sudo dhcpd -t -cf /etc/dhcp/dhcpd.conf
+	
+#### Lệnh khởi động lại để áp dụng
 
-
-
-
-
-2\. Setup Netplan UbuntuSV
-
-sudo nano /etc/netplan/00-installer-config.yaml
-
-
-
-sudo netplan generate
-
-sudo netplan try
-
-
-
-sudo netplan apply
-
-
-
-//FireWall/VPN
-
-network:
-
-&#x20; ethernets:
-
-&#x20;   ens33:
-
-&#x20;     dhcp4: false
-
-&#x20;     addresses:
-
-&#x20;       - 192.168.145.1/25
-
-
-
-&#x20;   ens37:
-
-&#x20;     dhcp4: false
-
-&#x20;     addresses:
-
-&#x20;       - 10.0.0.1/29
-
-
-
-&#x20;     routes:
-
-&#x20;       - to: 192.168.145.128/25
-
-&#x20;         via: 10.0.0.2
-
-
-
-&#x20; version: 2
-
-
-
-//FireWall
-
-network:
-
-&#x20; ethernets:
-
-&#x20;   ens33:
-
-&#x20;     dhcp4: false
-
-&#x20;     addresses:
-
-&#x20;       - 192.168.145.129/25
-
-
-
-&#x20;   ens37:
-
-&#x20;     dhcp4: false
-
-&#x20;     addresses:
-
-&#x20;       - 10.0.0.2/29
-
-
-
-&#x20;     routes:
-
-&#x20;       - to: 192.168.145.0/25
-
-&#x20;         via: 10.0.0.1
-
-&#x20; version: 2
-
-
-
-3\. Test ping
-
-//FireWall/VPN
-
-ip route get 10.0.0.2
-
-
-
-//Firewall
-
-ip route get 10.0.0.1
-
-
-
-4\. Bật chức năng routing
-
-sudo nano /etc/sysctl.conf
-
-
-
-//thêm
-
-net.ipv4.ip\_forward=1
-
-
-
-//áp dụng
-
-sudo sysctl -p
-
-
-
-//test xem đã bật routing chưa
-
-cat /proc/sys/net/ipv4/ip\_forward
-
-=> 1
-
-
-
-//test xem các routing hiện tại
-
-ip route
-
+	sudo systemctl restart isc-dhcp-server
+	sudo systemctl enable isc-dhcp-server
